@@ -22,13 +22,13 @@ int main(int argc, char* argv[]) {
   int sd;
   struct sockaddr_in addr;
  
-  socklen_t sin_size;
-  struct sockaddr_in from_addr;
- 
+  struct sigaction sa;
+
   char buf[2048];  // 受信バッファ
   char dbuf[2048]; // 表示バッファ
-  char ipa[30];    // IPアドレスのマッチング
-  char ccm[30];    // CCMのマッチング
+  char ipa[64];    // IPアドレスのマッチング
+  char ccm[128];   // CCMのマッチング
+  int  n;
   char ddd[11],tod[9];
   int  cnt;        // 受信カウンタ
   int  rc;
@@ -54,17 +54,31 @@ int main(int argc, char* argv[]) {
       opt_t = True;
     } else if (c=='i') {
       opt_i = True;
-      sprintf(ipa,"<IP>%s</IP>",optarg);
+      n = snprintf(ipa,sizeof(ipa),"<IP>%s</IP>",optarg);
+      if (n < 0 || (size_t)n >= sizeof(ipa)) {
+	fprintf(stderr,"uecsrxdump: IP address too long: %s\n",optarg);
+	exit(1);
+      }
     } else if (c=='c') {
       opt_c = True;
-      sprintf(ccm,"type=\"%s\"",optarg);
+      n = snprintf(ccm,sizeof(ccm),"type=\"%s\"",optarg);
+      if (n < 0 || (size_t)n >= sizeof(ccm)) {
+	fprintf(stderr,"uecsrxdump: CCM name too long: %s\n",optarg);
+	exit(1);
+      }
     } else if (c=='v') {
-      printf("uecsrxdump UECS CCM packet Dump Version 1.00\n");
+      printf("uecsrxdump UECS CCM packet Dump Version 1.10\n");
       exit(0);
     }
   }
   
-  if ( signal(SIGINT, abrt_handler) == SIG_ERR ) {
+  // SIGINTでブロック中のrecvfromを中断させるため、SA_RESTARTを付けずに登録する
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = abrt_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  if ( sigaction(SIGINT, &sa, NULL) < 0 ) {
+    perror("sigaction");
     exit(1);
   }
 
@@ -91,11 +105,10 @@ int main(int argc, char* argv[]) {
 
   while(!stopflag) {
     // 受信 パケットが到着するまでブロック
-    // from_addr には、送信元アドレスが格納される
-    rc = recvfrom(sd, buf, sizeof(buf), MSG_DONTWAIT,
-		  (struct sockaddr *)&from_addr, &sin_size);
+    // 終端文字の分として1バイト残して受信する
+    rc = recvfrom(sd, buf, sizeof(buf) - 1, 0, NULL, NULL);
     if ( rc > 0 ) {
-      buf[rc] = (char)NULL;
+      buf[rc] = '\0';
       if (opt_i) {
 	if (strstr(buf,ipa)==NULL) continue;
       }
@@ -131,10 +144,11 @@ int main(int argc, char* argv[]) {
       } else {
 	printf("%s\n",dbuf);
       }
-    } else {
-      if ( errno == EAGAIN ) continue;
+    } else if ( rc < 0 ) {
+      if ( errno == EINTR ) continue; // シグナル受信時はループ条件で終了判定
       perror("recvfrom");
     }
+    // rc == 0 (空のデータグラム) は無視する
   }
   // ソケットのクローズ
   close(sd);
