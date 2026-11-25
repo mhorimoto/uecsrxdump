@@ -15,7 +15,7 @@
 volatile sig_atomic_t stopflag = 0;
 void abrt_handler(int sig);
 
-extern int rep(char *, const char *, const char *, const char *);
+#include "ccm.h"
 
 int main(int argc, char* argv[]) {
   const char* optstring = "vmsti:c:";
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 	exit(1);
       }
     } else if (c=='v') {
-      printf("uecsrxdump UECS CCM packet Dump Version 1.10\n");
+      printf("uecsrxdump UECS CCM packet Dump Version 1.20\n");
       exit(0);
     }
   }
@@ -122,22 +122,14 @@ int main(int argc, char* argv[]) {
 	sprintf(ddd,"%04d-%02d-%02d",tm_now->tm_year+1900,tm_now->tm_mon+1,tm_now->tm_mday);
 	sprintf(tod,"%02d:%02d:%02d",tm_now->tm_hour,tm_now->tm_min,tm_now->tm_sec);
       }
-      // 不要フィールド削除
-      if ((opt_m)||(opt_s)) {
-	rep(dbuf,buf,"<?xml version=\"1.0\"?><UECS ver=\"1.00-E10\">","");
-	rep(buf,dbuf,"</UECS>","");
-      }
+      // 出力形式の変換 (UECSのバージョンや属性の順序に依存しない)
       if (opt_s) {
-	rep(dbuf,buf,"<DATA type=\"","");
-	rep(buf,dbuf,"\" room=\"",",");
-	rep(dbuf,buf,"\" region=\"",",");
-	rep(buf,dbuf,"\" order=\"",",");
-	rep(dbuf,buf,"\" priority=\"",",");
-	rep(buf,dbuf,"</DATA><IP>",",");
-	rep(dbuf,buf,"</IP>","");
-	rep(buf,dbuf,"\">",",");
+	if (ccm_to_csv(dbuf,sizeof(dbuf),buf) < 0) continue; // DATA以外はCSVにできないので出力しない
+      } else if (opt_m) {
+	ccm_strip(dbuf,sizeof(dbuf),buf);
+      } else {
+	strcpy(dbuf,buf);
       }
-      strcpy(dbuf,buf);
       // 受信データの出力
       if (opt_t) {
 	printf("%s %s %s\n",ddd,tod,dbuf);

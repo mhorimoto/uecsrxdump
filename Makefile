@@ -1,12 +1,12 @@
 all: uecsrxdump
 
-uecsrxdump: rx.o rep.o
-	cc -o uecsrxdump rx.o rep.o
+uecsrxdump: rx.o ccm.o
+	cc -o uecsrxdump rx.o ccm.o
 
-rx.o: rx.c
+rx.o: rx.c ccm.h
 	cc -c rx.c
-rep.o: rep.c
-	cc -c rep.c
+ccm.o: ccm.c ccm.h
+	cc -c ccm.c
 
 install:
 	install uecsrxdump /usr/local/bin/

@@ -28,6 +28,9 @@ UECSの16520/udpのパケットを受電して整形して標準出力に出力�
 CCMは、大小文字を区別し全部一致で表示対象となる。
 IPアドレスは全部一致で表示対象となる。
 
+`-m` と `-s` は、UECSのバージョン(ver属性)や属性の並び順に依存せずに処理する。
+`-s` では DATA 以外のパケット(NODESCAN など)はCSVに変換できないため出力しない。
+
 # 出力書式
 
 ## 基本書式
@@ -112,8 +115,8 @@ uecsrxdumpプログラムは、 /usr/local/bin の配下にインストールさ
 ## Author
 
 * 堀本　正文 (HORIMOTO Masafumi)
-* HOLLY&amp;Co.,Ltd.
-* horimoto@holly-linux.com
+* YS Lab LLC.
+* mh(at)ys-lab.tech
 
 # License
 
